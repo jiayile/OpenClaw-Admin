@@ -2465,9 +2465,10 @@ async function extractOpenClawBackup(backupPath, tempDir) {
               if (entry.isDirectory()) {
                 copyDirSync(srcPath, destPath, overwrite)
               } else if (entry.isSymbolicLink()) {
-                if (existsSync(destPath)) {
-                  if (overwrite) unlinkSync(destPath)
-                  else continue
+                if (overwrite) {
+                  try { unlinkSync(destPath) } catch (e) { }
+                } else if (existsSync(destPath)) {
+                  continue
                 }
                 const linkTarget = readlinkSync(srcPath)
                 symlinkSync(linkTarget, destPath)
