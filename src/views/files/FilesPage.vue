@@ -781,7 +781,11 @@ function readFileContent(file: File): Promise<string> {
 }
 
 function renderMarkdown(content: string): string {
-  return renderSimpleMarkdown(content)
+  return renderSimpleMarkdown(content, {
+    imageBasePath: selectedFile.value?.path,
+    workspace: currentWorkspace.value || undefined,
+    authToken: authStore.token || undefined,
+  })
 }
 
 function insertText(before: string, after: string = '') {
@@ -1390,6 +1394,109 @@ onMounted(() => {
 .markdown-preview :deep(th) {
   background: var(--bg-primary);
   font-weight: 600;
+}
+
+.markdown-preview :deep(img) {
+  max-width: 100%;
+  height: auto;
+  border-radius: var(--radius);
+  margin: 8px 0;
+}
+
+.markdown-preview :deep(hr) {
+  border: none;
+  border-top: 1px solid var(--border-color);
+  margin: 16px 0;
+}
+
+.markdown-preview :deep(del) {
+  color: var(--text-tertiary);
+  text-decoration: line-through;
+}
+
+.markdown-preview :deep(mark) {
+  background: rgba(255, 200, 0, 0.3);
+  padding: 1px 4px;
+  border-radius: 2px;
+}
+
+.markdown-preview :deep(strong) {
+  font-weight: 600;
+}
+
+.markdown-preview :deep(em) {
+  font-style: italic;
+}
+
+.markdown-preview :deep(sup) {
+  font-size: 0.75em;
+  vertical-align: super;
+  line-height: 0;
+}
+
+.markdown-preview :deep(sub) {
+  font-size: 0.75em;
+  vertical-align: sub;
+  line-height: 0;
+}
+
+.markdown-preview :deep(details) {
+  margin: 8px 0;
+  padding: 8px 12px;
+  background: var(--bg-primary);
+  border-radius: var(--radius);
+  border: 1px solid var(--border-color);
+}
+
+.markdown-preview :deep(summary) {
+  cursor: pointer;
+  font-weight: 500;
+  outline: none;
+}
+
+.markdown-preview :deep(summary:hover) {
+  color: var(--link-color);
+}
+
+.markdown-preview :deep(dl) {
+  margin: 12px 0;
+}
+
+.markdown-preview :deep(dt) {
+  font-weight: 600;
+  margin-top: 8px;
+}
+
+.markdown-preview :deep(dd) {
+  margin-left: 24px;
+  color: var(--text-secondary);
+}
+
+.markdown-preview :deep(figure) {
+  margin: 12px 0;
+  text-align: center;
+}
+
+.markdown-preview :deep(figcaption) {
+  font-size: 0.9em;
+  color: var(--text-tertiary);
+  margin-top: 4px;
+}
+
+.markdown-preview :deep(abbr[title]) {
+  text-decoration: underline dotted;
+  cursor: help;
+}
+
+.markdown-preview :deep(kbd) {
+  display: inline-block;
+  padding: 2px 6px;
+  font-family: 'SF Mono', 'Menlo', 'Monaco', monospace;
+  font-size: 0.85em;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  box-shadow: inset 0 -1px 0 var(--border-color);
 }
 
 .editor-container {

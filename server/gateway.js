@@ -3,7 +3,7 @@ import { randomUUID } from 'crypto'
 import EventEmitter from 'events'
 import { createHash, generateKeyPairSync, sign } from 'crypto'
 
-const APP_VERSION = process.env.VITE_APP_VERSION || process.env.npm_package_version || '0.2.3'
+const APP_VERSION = process.env.VITE_APP_VERSION || process.env.npm_package_version || ''
 
 export class OpenClawGateway extends EventEmitter {
   constructor(url, authToken, authPassword) {

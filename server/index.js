@@ -651,8 +651,9 @@ app.get('/api/files/list', authMiddleware, async (req, res) => {
 
 app.get('/api/files/get', authMiddleware, async (req, res) => {
   try {
-    const relPath = req.query.path || req.query.name
+    let relPath = req.query.path || req.query.name
     const workspaceParam = req.query.workspace || ''
+    const binary = req.query.binary === 'true'
     
     if (!relPath) {
       return res.status(400).json({ ok: false, error: { message: 'Path is required' } })
@@ -662,10 +663,22 @@ app.get('/api/files/get', authMiddleware, async (req, res) => {
       return res.status(400).json({ ok: false, error: { message: 'Workspace parameter is required' } })
     }
     
+    // Handle double URL encoding from img src
+    try {
+      let decoded = decodeURIComponent(relPath)
+      // Check if it was double-encoded
+      if (decoded.includes('%')) {
+        decoded = decodeURIComponent(decoded)
+      }
+      relPath = decoded
+    } catch (e) {
+      // If decode fails, use original
+    }
+    
     const workspaceBase = expandHomePath(workspaceParam)
     const absPath = safePath(relPath, workspaceBase)
     
-    console.log('[Files] Get:', { relPath, workspaceParam, absPath })
+    console.log('[Files] Get:', { relPath, workspaceParam, absPath, binary })
     
     if (!absPath) {
       return res.status(400).json({ ok: false, error: { message: 'Invalid path' } })
@@ -682,6 +695,34 @@ app.get('/api/files/get', authMiddleware, async (req, res) => {
     
     const ext = extname(absPath).slice(1).toLowerCase()
     const imgExts = ['png', 'jpg', 'jpeg', 'gif', 'svg', 'webp', 'ico', 'bmp']
+    
+    if (binary && imgExts.includes(ext)) {
+      const contentTypeMap = {
+        png: 'image/png',
+        jpg: 'image/jpeg',
+        jpeg: 'image/jpeg',
+        gif: 'image/gif',
+        svg: 'image/svg+xml',
+        webp: 'image/webp',
+        ico: 'image/x-icon',
+        bmp: 'image/bmp',
+      }
+      
+      const contentType = contentTypeMap[ext] || 'application/octet-stream'
+      res.setHeader('Content-Type', contentType)
+      res.setHeader('Content-Length', stats.size)
+      
+      const stream = createReadStream(absPath)
+      stream.pipe(res)
+      
+      stream.on('error', (err) => {
+        console.error('[Files] Stream error:', err.message)
+        if (!res.headersSent) {
+          res.status(500).json({ ok: false, error: { message: err.message } })
+        }
+      })
+      return
+    }
     
     if (imgExts.includes(ext)) {
       const buffer = readFileSync(absPath)

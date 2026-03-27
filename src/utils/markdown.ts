@@ -3,16 +3,23 @@ import MarkdownIt from 'markdown-it'
 type SimpleMarkdownRenderOptions = {
   emptyHtml?: string
   autoNestList?: boolean
+  imageBasePath?: string
+  workspace?: string
+  authToken?: string
 }
 
-const markdownRenderer = new MarkdownIt('commonmark', {
-  html: false,
+const markdownRenderer = new MarkdownIt({
+  html: true,
   linkify: true,
-  typographer: false,
+  typographer: true,
+  breaks: false,
 })
 
-// commonmark 预设默认不启用 GFM 表格；聊天里经常需要展示“|---|”表格
-markdownRenderer.enable('table')
+markdownRenderer.enable([
+  'table',
+  'strikethrough',
+  'linkify',
+])
 
 const defaultLinkOpenRule = markdownRenderer.renderer.rules.link_open
 markdownRenderer.renderer.rules.link_open = (tokens, idx, options, env, self) => {
@@ -27,6 +34,57 @@ markdownRenderer.renderer.rules.link_open = (tokens, idx, options, env, self) =>
     return defaultLinkOpenRule(tokens, idx, options, env, self)
   }
   return self.renderToken(tokens, idx, options)
+}
+
+const defaultImageRule = markdownRenderer.renderer.rules.image
+markdownRenderer.renderer.rules.image = (tokens, idx, options, env, self) => {
+  const token = tokens[idx]
+  const src = token?.attrGet('src') || ''
+  
+  if (src && !/^https?:\/\//i.test(src) && !/^data:/i.test(src)) {
+    const imageBasePath = (env as any)?.imageBasePath as string | undefined
+    const workspace = (env as any)?.workspace as string | undefined
+    const authToken = (env as any)?.authToken as string | undefined
+    
+    if (imageBasePath && workspace) {
+      const resolvedPath = resolveImagePath(src, imageBasePath)
+      let apiSrc = `/api/files/get?path=${encodeURIComponent(resolvedPath)}&workspace=${encodeURIComponent(workspace)}&binary=true`
+      if (authToken) {
+        apiSrc += `&token=${encodeURIComponent(authToken)}`
+      }
+      token?.attrSet('src', apiSrc)
+    }
+  }
+  
+  if (defaultImageRule) {
+    return defaultImageRule(tokens, idx, options, env, self)
+  }
+  return self.renderToken(tokens, idx, options)
+}
+
+function resolveImagePath(src: string, basePath: string): string {
+  if (src.startsWith('/')) {
+    return src.slice(1)
+  }
+  
+  if (src.startsWith('./')) {
+    src = src.slice(2)
+  }
+  
+  const normalizedBase = basePath.replace(/\\/g, '/')
+  const lastSlash = normalizedBase.lastIndexOf('/')
+  const baseDir = lastSlash >= 0 ? normalizedBase.substring(0, lastSlash) : ''
+  
+  while (src.startsWith('../')) {
+    src = src.slice(3)
+    const lastSlash = baseDir.lastIndexOf('/')
+    if (lastSlash >= 0) {
+      return baseDir.substring(0, lastSlash) + '/' + src
+    }
+    return src
+  }
+  
+  return baseDir ? `${baseDir}/${src}` : src
 }
 
 function normalizeLeadingIndent(line: string): string {
@@ -79,8 +137,6 @@ function normalizeGfmTableBlocks(lines: string[]): string[] {
   }
   if (!hasSeparator) return lines
 
-  // 常见坏格式：把多行表格“压扁”成一行（`| a | b | |---|---| | 1 | 2 |`）
-  // 再加上前面带标题文本，会导致 markdown-it 识别不到 table。
   const expanded: string[] = []
   inFence = false
 
@@ -95,7 +151,6 @@ function normalizeGfmTableBlocks(lines: string[]): string[] {
       continue
     }
 
-    // 仅在出现表格分隔符时尝试修复，避免误伤普通文本中的 `|`。
     if (/\|\s*:?-{3,}:?\s*\|/.test(line) && /\|\s+\|/.test(line)) {
       expanded.push(...line.replace(/\|\s+\|/g, '|\n|').split('\n'))
       continue
@@ -122,10 +177,6 @@ function normalizeGfmTableBlocks(lines: string[]): string[] {
       const headerLine = repaired[repaired.length - 1] || ''
       const headerCells = splitTableCells(headerLine)
 
-      // 典型场景：
-      // "5) 已有 Skills ... | Skill | 什么时候用 | 核心要点/约束 |"
-      // "|---|---|---|"
-      // 头部多出 1 列，导致 table 不被识别。这里把第一列提出来当标题行。
       if (headerCells.length === separator.colCount + 1) {
         const title = headerCells[0]?.trim() || ''
         const cells = headerCells.slice(1)
@@ -142,7 +193,6 @@ function normalizeGfmTableBlocks(lines: string[]): string[] {
 }
 
 function normalizeGroupingText(content: string): string {
-  // 容忍常见 markdown 包裹（如 **摘要：**），避免分组识别被装饰符影响
   return content
     .trim()
     .replace(/[*_`~]/g, '')
@@ -152,21 +202,18 @@ function looksLikeGroupTitle(content: string): boolean {
   const text = normalizeGroupingText(content)
   if (!text) return false
   const hasMarkdownLink = /\[[^\]]+]\(https?:\/\/[^)\s]+\)/.test(text)
-  // 明显的“详情行”特征：带冒号、以句号/问号/感叹号收尾、或动作动词开头
   if (/[：:]/.test(text)) return false
   if (/[。！？!?]\s*$/.test(text)) return false
   if (!hasMarkdownLink && /https?:\/\//i.test(text)) return false
   if (/^(支持|新增|增加|修复|修正|优化|调整|移除|删除|合并|拆分|更新|改进|减少|提供|暴露|规范化)/u.test(text)) return false
   if (text.length > 60) return false
 
-  // 强特征：链接、分隔符/括号、或常见“章节标题”尾缀
   if (hasMarkdownLink) return true
   if (/[\/]/.test(text)) return true
   if (/[()（）]/.test(text)) return true
   if (/(Changes|Fixes)\b/.test(text)) return true
   if (/(支持|增强|能力|改进|修复)\s*$/u.test(text)) return true
 
-  // 弱特征兜底：短文本且不像一句完整描述
   if (text.length <= 20 && /[\p{Script=Han}]/u.test(text)) return true
   if (text.length <= 24 && /^[A-Za-z][A-Za-z0-9 ._-]*$/.test(text)) return true
 
@@ -313,5 +360,34 @@ export function renderSimpleMarkdown(markdown: string, options: SimpleMarkdownRe
   if (!normalized.trim()) {
     return options.emptyHtml || ''
   }
-  return markdownRenderer.render(normalized)
+  
+  const env: Record<string, unknown> = {}
+  if (options.imageBasePath) {
+    env.imageBasePath = options.imageBasePath
+  }
+  if (options.workspace) {
+    env.workspace = options.workspace
+  }
+  if (options.authToken) {
+    env.authToken = options.authToken
+  }
+  
+  return markdownRenderer.render(normalized, env)
+}
+
+export function extractTocHeadings(markdown: string): { level: number; text: string; id: string }[] {
+  const lines = markdown.replace(/\r\n/g, '\n').split('\n')
+  const headings: { level: number; text: string; id: string }[] = []
+  
+  for (const line of lines) {
+    const match = line.match(/^(#{1,6})\s+(.+)$/)
+    if (match) {
+      const level = match[1]?.length || 1
+      const text = (match[2] || '').trim()
+      const id = text.toLowerCase().replace(/[^\w\u4e00-\u9fa5]+/g, '-')
+      headings.push({ level, text, id })
+    }
+  }
+  
+  return headings
 }

@@ -25,7 +25,7 @@ const authStore = useAuthStore()
 const { t } = useI18n()
 const message = useMessage()
 const appTitle = import.meta.env.VITE_APP_TITLE || 'OpenClaw Admin'
-const appVersion = import.meta.env.VITE_APP_VERSION || '0.2.3'
+const appVersion = import.meta.env.VITE_APP_VERSION || ''
 
 const loading = ref(false)
 const saving = ref(false)
