@@ -1,4 +1,6 @@
 import MarkdownIt from 'markdown-it'
+import katex from 'katex'
+import hljs from 'highlight.js'
 
 type SimpleMarkdownRenderOptions = {
   emptyHtml?: string
@@ -15,11 +17,155 @@ const markdownRenderer = new MarkdownIt({
   breaks: true,
 })
 
-markdownRenderer.enable([
-  'table',
-  'strikethrough',
-  'linkify',
-])
+function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+}
+
+function generateCodeBlockWithLineNumbers(originalCode: string, lang: string): string {
+  let highlighted = ''
+  
+  if (lang && hljs.getLanguage(lang)) {
+    try {
+      highlighted = hljs.highlight(originalCode, { language: lang, ignoreIllegals: true }).value
+    } catch (e) {
+      highlighted = escapeHtml(originalCode)
+    }
+  } else {
+    highlighted = escapeHtml(originalCode)
+  }
+  
+  // 移除末尾的换行符，避免产生多余的空行号
+  const trimmedHighlighted = highlighted.replace(/\n+$/, '')
+  const lines = trimmedHighlighted.split('\n')
+  
+  let lineNumbersHtml = ''
+  for (let i = 1; i <= lines.length; i++) {
+    lineNumbersHtml += `<span class="line-number">${i}</span>\n`
+  }
+  
+  const escapedOriginalCode = originalCode
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+  
+  return `<div class="code-block-container">
+<div class="code-line-numbers">${lineNumbersHtml}</div>
+<div class="code-content"><code class="language-${lang || 'plaintext'}">${trimmedHighlighted}</code></div>
+<button class="code-copy-btn" data-code="${escapedOriginalCode}" title="Copy code"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg></button>
+</div>`
+}
+
+markdownRenderer.renderer.rules.fence = (tokens, idx) => {
+  const token = tokens[idx]
+  const info = token?.info || ''
+  const content = token?.content || ''
+  const lang = info.trim().split(/\s+/)[0] || ''
+  
+  return generateCodeBlockWithLineNumbers(content, lang)
+}
+
+markdownRenderer.renderer.rules.code_block = (tokens, idx) => {
+  const token = tokens[idx]
+  const content = token?.content || ''
+  
+  return generateCodeBlockWithLineNumbers(content, '')
+}
+
+function renderLatex(content: string, displayMode: boolean = false): string {
+  try {
+    return katex.renderToString(content, {
+      displayMode: displayMode,
+      throwOnError: false,
+      output: 'html',
+    })
+  } catch (e) {
+    console.error('KaTeX render error:', e)
+    return content
+  }
+}
+
+function processLatex(content: string): string {
+  let result = content
+  
+  // 处理块级公式 $$...$$ (支持跨多行)
+  result = result.replace(/\$\$([\s\S]*?)\$\$/g, (_, math) => {
+    const trimmed = math.trim()
+    if (!trimmed) return ''
+    return `<div class="katex-display">${renderLatex(trimmed, true)}</div>`
+  })
+  
+  // 处理行内公式 $...$ (不跨行)
+  result = result.replace(/\$([^\$\n]+?)\$/g, (_, math) => {
+    const trimmed = math.trim()
+    if (!trimmed) return ''
+    return renderLatex(trimmed, false)
+  })
+  
+  return result
+}
+
+let headingCounters: number[] = [0, 0, 0, 0, 0, 0]
+
+function resetHeadingCounters() {
+  headingCounters = [0, 0, 0, 0, 0, 0]
+}
+
+function getHeadingNumber(level: number): string {
+  const idx = level - 1
+  if (idx >= 0 && idx < 6) {
+    headingCounters[idx] = (headingCounters[idx] ?? 0) + 1
+  }
+  
+  for (let i = level; i < 6; i++) {
+    headingCounters[i] = 0
+  }
+  
+  const parts: string[] = []
+  for (let i = 0; i < level; i++) {
+    const count = headingCounters[i] ?? 0
+    if (count > 0) {
+      parts.push(String(count))
+    }
+  }
+  
+  return parts.join('.')
+}
+
+const defaultHeadingOpenRule = markdownRenderer.renderer.rules.heading_open
+markdownRenderer.renderer.rules.heading_open = (tokens, idx, options, env, self) => {
+  const token = tokens[idx]
+  const nextToken = tokens[idx + 1]
+  
+  if (token && nextToken && nextToken.type === 'inline') {
+    const text = nextToken.content || ''
+    const id = text.toLowerCase().replace(/[^\w\u4e00-\u9fa5]+/g, '-')
+    token.attrSet('id', id)
+    
+    const level = token.tag === 'h1' ? 1 : 
+                  token.tag === 'h2' ? 2 : 
+                  token.tag === 'h3' ? 3 : 
+                  token.tag === 'h4' ? 4 : 
+                  token.tag === 'h5' ? 5 : 
+                  token.tag === 'h6' ? 6 : 1
+    
+    const number = getHeadingNumber(level)
+    if (number) {
+      token.attrSet('data-heading-number', number)
+    }
+  }
+  
+  if (defaultHeadingOpenRule) {
+    return defaultHeadingOpenRule(tokens, idx, options, env, self)
+  }
+  return self.renderToken(tokens, idx, options)
+}
 
 const defaultLinkOpenRule = markdownRenderer.renderer.rules.link_open
 markdownRenderer.renderer.rules.link_open = (tokens, idx, options, env, self) => {
@@ -332,6 +478,7 @@ function normalizeMarkdownInput(markdown: string, options: { autoNestList: boole
   const rawLines = markdown.replace(/\r\n/g, '\n').split('\n')
   const normalizedLines: string[] = []
   let inFence = false
+  let inLatexBlock = false
 
   for (const line of rawLines) {
     if (isFenceDelimiter(line)) {
@@ -343,6 +490,19 @@ function normalizeMarkdownInput(markdown: string, options: { autoNestList: boole
       normalizedLines.push(line)
       continue
     }
+    
+    // 检测 LaTeX 块级公式 $$...$$
+    const dollarCount = (line.match(/\$\$/g) || []).length
+    if (dollarCount === 1) {
+      inLatexBlock = !inLatexBlock
+      normalizedLines.push(line)
+      continue
+    }
+    if (inLatexBlock) {
+      normalizedLines.push(line)
+      continue
+    }
+    
     normalizedLines.push(normalizeLeadingIndent(line))
   }
 
@@ -356,6 +516,8 @@ function normalizeMarkdownInput(markdown: string, options: { autoNestList: boole
 }
 
 export function renderSimpleMarkdown(markdown: string, options: SimpleMarkdownRenderOptions = {}): string {
+  resetHeadingCounters()
+  
   const normalized = normalizeMarkdownInput(markdown || '', { autoNestList: options.autoNestList ?? false })
   if (!normalized.trim()) {
     return options.emptyHtml || ''
@@ -372,14 +534,38 @@ export function renderSimpleMarkdown(markdown: string, options: SimpleMarkdownRe
     env.authToken = options.authToken
   }
   
-  return markdownRenderer.render(normalized, env)
+  const processedContent = processLatex(normalized)
+  
+  return markdownRenderer.render(processedContent, env)
 }
 
 export function extractTocHeadings(markdown: string): { level: number; text: string; id: string }[] {
   const lines = markdown.replace(/\r\n/g, '\n').split('\n')
   const headings: { level: number; text: string; id: string }[] = []
+  let inCodeBlock = false
+  let codeBlockFence = ''
   
   for (const line of lines) {
+    // Check for fenced code block start/end
+    const fenceMatch = line.match(/^(\s*)(`{3,}|~{3,})/)
+    if (fenceMatch) {
+      const fence = fenceMatch[2] || ''
+      if (!inCodeBlock) {
+        inCodeBlock = true
+        codeBlockFence = fence
+      } else if (fence.startsWith(codeBlockFence[0] || '')) {
+        inCodeBlock = false
+        codeBlockFence = ''
+      }
+      continue
+    }
+    
+    // Skip lines inside code blocks
+    if (inCodeBlock) continue
+    
+    // Skip indented code blocks (4 spaces or 1 tab)
+    if (/^(    |\t)/.test(line)) continue
+    
     const match = line.match(/^(#{1,6})\s+(.+)$/)
     if (match) {
       const level = match[1]?.length || 1

@@ -695,6 +695,7 @@ app.get('/api/files/get', authMiddleware, async (req, res) => {
     
     const ext = extname(absPath).slice(1).toLowerCase()
     const imgExts = ['png', 'jpg', 'jpeg', 'gif', 'svg', 'webp', 'ico', 'bmp']
+    const pdfExts = ['pdf']
     
     if (binary && imgExts.includes(ext)) {
       const contentTypeMap = {
@@ -717,6 +718,22 @@ app.get('/api/files/get', authMiddleware, async (req, res) => {
       
       stream.on('error', (err) => {
         console.error('[Files] Stream error:', err.message)
+        if (!res.headersSent) {
+          res.status(500).json({ ok: false, error: { message: err.message } })
+        }
+      })
+      return
+    }
+    
+    if (binary && pdfExts.includes(ext)) {
+      res.setHeader('Content-Type', 'application/pdf')
+      res.setHeader('Content-Length', stats.size)
+      
+      const stream = createReadStream(absPath)
+      stream.pipe(res)
+      
+      stream.on('error', (err) => {
+        console.error('[Files] PDF stream error:', err.message)
         if (!res.headersSent) {
           res.status(500).json({ ok: false, error: { message: err.message } })
         }
