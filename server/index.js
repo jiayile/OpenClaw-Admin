@@ -69,15 +69,31 @@ const desktopSessions = new Map()
 let gatewayVersion = null
 let updateInfo = null
 
-gateway.on('connected', () => {
+gateway.on('connected', (payload) => {
   console.log('[Gateway] Connected to OpenClaw')
+  console.log('[Server] Connected payload:', payload ? Object.keys(payload) : null)
+  
+  const serverVersion = payload?.server?.version
+  if (serverVersion) {
+    console.log('[Server] Setting gateway version from connected event:', serverVersion)
+    gatewayVersion = serverVersion
+    updateInfo = { currentVersion: serverVersion, latestVersion: serverVersion, channel: 'latest' }
+    broadcastSSE({ 
+      type: 'gatewayState', 
+      state: 'connected', 
+      version: serverVersion, 
+      updateAvailable: updateInfo 
+    })
+  }
 })
 
 gateway.on('version', (info) => {
-  console.log('[Server] Gateway version info:', info)
-  updateInfo = info
-  gatewayVersion = info.currentVersion
-  broadcastSSE({ type: 'gatewayState', state: 'connected', version: info.currentVersion, updateAvailable: info })
+  console.log('[Server] Gateway version event received:', info)
+  if (info && info.currentVersion) {
+    updateInfo = info
+    gatewayVersion = info.currentVersion
+    broadcastSSE({ type: 'gatewayState', state: 'connected', version: info.currentVersion, updateAvailable: info })
+  }
 })
 
 gateway.on('disconnected', () => {
