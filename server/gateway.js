@@ -30,14 +30,22 @@ export class OpenClawGateway extends EventEmitter {
       this.ws.close()
     }
 
-    // URL query 参数：token 优先，password 作为备选
     const authParam = this.authToken || this.authPassword || ''
     const wsUrl = authParam ? `${this.url}?auth=${authParam}` : this.url
+    
+    console.log('[Gateway] Connecting to:', this.url)
+    console.log('[Gateway] Auth configured:', {
+      hasToken: !!this.authToken,
+      hasPassword: !!this.authPassword,
+      tokenLength: this.authToken?.length || 0,
+      passwordLength: this.authPassword?.length || 0
+    })
     
     try {
       this.ws = new WebSocket(wsUrl)
       
       this.ws.on('open', () => {
+        console.log('[Gateway] WebSocket opened, preparing connect frame...')
         this.connectId = `connect-${Date.now()}`
         this.nonce = null
         this.connectSent = false
@@ -45,23 +53,28 @@ export class OpenClawGateway extends EventEmitter {
         
         setTimeout(() => {
           if (!this.connectSent) {
+            console.log('[Gateway] Sending connect frame (no challenge received)')
             this.sendConnect()
           }
         }, 500)
       })
 
       this.ws.on('message', (data) => {
+        console.log('[Gateway] Received message:', data.toString().substring(0, 500))
         this.handleMessage(data)
       })
 
       this.ws.on('close', (code, reason) => {
+        console.log('[Gateway] WebSocket closed:', { code, reason: reason.toString() })
         this.handleDisconnect(code, reason.toString())
       })
 
       this.ws.on('error', (err) => {
+        console.error('[Gateway] WebSocket error:', err.message)
         this.emit('error', err)
       })
     } catch (err) {
+      console.error('[Gateway] Connection failed:', err.message)
       this.emit('error', err)
       this.scheduleReconnect()
     }
@@ -69,12 +82,28 @@ export class OpenClawGateway extends EventEmitter {
 
   async sendConnect() {
     if (this.connectSent || !this.ws || this.ws.readyState !== WebSocket.OPEN) {
+      console.log('[Gateway] sendConnect skipped:', { 
+        connectSent: this.connectSent, 
+        wsReady: this.ws?.readyState, 
+        wsOpen: this.ws?.readyState === WebSocket.OPEN 
+      })
       return
     }
     
     this.connectSent = true
 
     const connectParams = await this.buildConnectParams()
+    
+    console.log('[Gateway] Sending connect frame with params:', {
+      clientId: connectParams.client?.id,
+      clientMode: connectParams.client?.mode,
+      role: connectParams.role,
+      scopes: connectParams.scopes,
+      hasDevice: !!connectParams.device,
+      hasToken: !!connectParams.auth?.token,
+      hasPassword: !!connectParams.auth?.password,
+      caps: connectParams.caps
+    })
 
     const frame = {
       type: 'req',
@@ -227,9 +256,13 @@ export class OpenClawGateway extends EventEmitter {
       const frame = JSON.parse(data.toString())
 
       if (frame.type === 'event') {
+        console.log('[Gateway] Received event:', frame.event, 'payload keys:', frame.payload ? Object.keys(frame.payload) : null)
+        
         if (frame.event === 'connect.challenge') {
+          console.log('[Gateway] Received connect.challenge, nonce:', frame.payload?.nonce?.substring(0, 16) + '...')
           this.nonce = frame.payload?.nonce
           if (this.nonce && !this.connectSent) {
+            console.log('[Gateway] Sending connect frame after challenge')
             this.sendConnect()
           }
         } else {
@@ -251,6 +284,7 @@ export class OpenClawGateway extends EventEmitter {
           if (frame.ok) {
             pending.resolve(frame.payload)
           } else {
+            console.error('[Gateway] RPC call failed:', frame.id, frame.error)
             pending.reject(new Error(frame.error?.message || 'RPC call failed'))
           }
         }
@@ -261,6 +295,12 @@ export class OpenClawGateway extends EventEmitter {
   }
 
   handleConnectResponse(frame) {
+    console.log('[Gateway] Connect response received:', {
+      ok: frame.ok,
+      error: frame.error,
+      payloadKeys: frame.payload ? Object.keys(frame.payload) : null
+    })
+    
     this.connectId = null
 
     if (frame.ok) {
@@ -283,7 +323,6 @@ export class OpenClawGateway extends EventEmitter {
         console.log('[Gateway] Emitting version event with:', updateInfo)
         this.emit('version', updateInfo)
       } else if (serverVersion) {
-        // 如果没有updateAvailable，但有server.version，则使用server.version
         console.log('[Gateway] Emitting version event with server version:', serverVersion)
         this.emit('version', { currentVersion: serverVersion, latestVersion: serverVersion, channel: 'latest' })
       } else {
@@ -291,6 +330,8 @@ export class OpenClawGateway extends EventEmitter {
       }
     } else {
       const error = frame.error?.message || 'Connection failed'
+      console.error('[Gateway] Connect failed:', error)
+      console.error('[Gateway] Full error response:', JSON.stringify(frame.error, null, 2))
       this.emit('error', new Error(error))
       this.emit('stateChange', 'failed')
       this.ws?.close()
