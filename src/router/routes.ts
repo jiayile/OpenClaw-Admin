@@ -131,6 +131,12 @@ export const routes: RouteRecordRaw[] = [
         meta: { titleKey: 'routes.monitor', icon: 'PulseOutline', hidden: true },
       },
       {
+        path: 'dashboard-v2',
+        name: 'DashboardPage',
+        component: () => import('@/views/dashboard/DashboardPage.vue'),
+        meta: { titleKey: 'routes.dashboardV2', icon: 'GridOutline' },
+      },
+      {
         path: 'settings',
         name: 'Settings',
         component: () => import('@/views/settings/SettingsPage.vue'),
