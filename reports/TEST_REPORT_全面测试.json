@@ -1,0 +1,69 @@
+{
+  "project": "openclaw-web",
+  "version": "0.2.6",
+  "test_date": "2026-04-10T13:08:00+08:00",
+  "tester": "测试工程师 (WinClaw AI 助手)",
+  "status": "测试完成",
+  "summary": {
+    "total_test_cases": 74,
+    "passed": 74,
+    "failed": 0,
+    "pass_rate": "100%",
+    "coverage": {
+      "statements": "2.48%",
+      "branches": "1.58%",
+      "functions": "6.02%",
+      "lines": "2.24%"
+    },
+    "security_vulnerabilities": {
+      "total": 14,
+      "high": 13,
+      "moderate": 1,
+      "low": 0
+    }
+  },
+  "test_results": {
+    "unit_tests": {
+      "status": "通过",
+      "test_files": 7,
+      "test_cases": 74,
+      "duration": "3.14s"
+    },
+    "integration_tests": {
+      "status": "通过",
+      "test_cases": 6
+    },
+    "security_scan": {
+      "status": "发现漏洞",
+      "vulnerabilities": 14
+    },
+    "coverage_analysis": {
+      "status": "待提升",
+      "overall_coverage": "2.48%"
+    }
+  },
+  "issues": [
+    {"id": "SEC-001", "severity": "High", "type": "安全漏洞", "description": "glob 命令注入漏洞"},
+    {"id": "SEC-002", "severity": "High", "type": "安全漏洞", "description": "lodash 代码注入漏洞"},
+    {"id": "SEC-003", "severity": "High", "type": "安全漏洞", "description": "multer DoS 漏洞"},
+    {"id": "SEC-004", "severity": "High", "type": "安全漏洞", "description": "pdfjs-dist 任意 JS 执行"},
+    {"id": "SEC-005", "severity": "High", "type": "安全漏洞", "description": "tar 任意文件创建"},
+    {"id": "SEC-006", "severity": "High", "type": "安全漏洞", "description": "vite 路径遍历漏洞"},
+    {"id": "SEC-007", "severity": "High", "type": "安全漏洞", "description": "rollup 任意文件写入"},
+    {"id": "SEC-008", "severity": "High", "type": "安全漏洞", "description": "path-to-regexp DoS"},
+    {"id": "SEC-009", "severity": "High", "type": "安全漏洞", "description": "minimatch ReDoS"},
+    {"id": "SEC-010", "severity": "High", "type": "安全漏洞", "description": "picomatch ReDoS"},
+    {"id": "COV-001", "severity": "Medium", "type": "覆盖率", "description": "后端服务层覆盖率 0%"},
+    {"id": "COV-002", "severity": "Medium", "type": "覆盖率", "description": "核心业务模块覆盖率低"},
+    {"id": "COV-003", "severity": "Medium", "type": "覆盖率", "description": "整体覆盖率仅 2.48%"},
+    {"id": "MOD-001", "severity": "Low", "type": "安全漏洞", "description": "brace-expansion 内存耗尽"}
+  ],
+  "report_path": "/www/wwwroot/ai-work/reports/TEST_REPORT_全面测试.md",
+  "recommendations": [
+    "P0: 立即修复高危安全漏洞 (tar, vite, pdfjs-dist, multer)",
+    "P0: 补充 server 层测试",
+    "P1: 提升整体代码覆盖率至 30%+",
+    "P1: 补充核心业务模块测试 (agent, chat, office)",
+    "P2: 建立持续集成安全扫描"
+  ]
+}
