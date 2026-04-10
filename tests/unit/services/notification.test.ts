@@ -3,7 +3,8 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import {
+import * as notificationService from '../../src/server/services/notification.js'
+const {
   createNotification,
   getNotifications,
   markNotificationRead,
@@ -15,7 +16,7 @@ import {
   warning,
   error,
   success
-} from '../../src/server/services/notification.js'
+} = notificationService
 
 describe('Notification Service', () => {
   const testUserId = 'user_test_123'

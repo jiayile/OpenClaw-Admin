@@ -3,8 +3,9 @@
  */
 
 import { describe, it, expect, beforeEach } from 'vitest'
-import { Request, Response, NextFunction } from 'express'
-import {
+import type { Request, Response, NextFunction } from 'express'
+import * as rbacMiddleware from '../../src/server/middleware/rbac.js'
+const {
   hasPermission,
   canDo,
   hasRoleOrHigher,
@@ -13,7 +14,7 @@ import {
   requireOperator,
   getRolePermissions,
   getAllPermissions
-} from '../middleware/rbac.js'
+} = rbacMiddleware
 
 // Mock Express request/response
 function createMockReqRes(user?: { id: string; username: string; role: string; permissions: string[] }) {

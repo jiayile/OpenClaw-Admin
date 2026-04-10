@@ -3,8 +3,9 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { Request, Response } from 'express'
-import { requireAuth, requirePermission, requireAnyPermission, requireRole } from '../middleware/auth.js'
+import type { Request, Response } from 'express'
+import * as authMiddleware from '../../src/server/middleware/auth.js'
+const { requireAuth, requirePermission, requireAnyPermission, requireRole } = authMiddleware
 
 // Mock Express request/response
 function createMockReqRes(user?: { id: string; username: string; role: string; permissions: string[] }) {

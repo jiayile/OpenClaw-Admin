@@ -3,7 +3,8 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import {
+import * as authService from '../../src/server/services/auth.js'
+const {
   hashPassword,
   verifyPassword,
   generateToken,
@@ -18,7 +19,7 @@ import {
   checkApiRateLimit,
   checkBruteForce,
   cleanupExpiredSessions
-} from '../../src/server/services/auth.js'
+} = authService
 
 describe('Auth Service', () => {
   describe('hashPassword', () => {

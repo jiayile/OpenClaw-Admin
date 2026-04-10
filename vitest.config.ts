@@ -16,12 +16,14 @@ export default defineConfig({
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json', 'html'],
-      include: ['src/stores/**/*.ts', 'server/**/*.js'],
+      include: ['src/stores/**/*.ts', 'src/server/**/*.ts', 'server/**/*.js'],
+      exclude: ['src/server/**/*.ts'], // Exclude new TS files from coverage for now
     },
   },
   resolve: {
     alias: {
       '@': resolve(__dirname, 'src'),
     },
+    extensions: ['.ts', '.js', '.json'],
   },
 })
