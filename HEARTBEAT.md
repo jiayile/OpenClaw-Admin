@@ -12,7 +12,9 @@
     "buildStatus": "成功"
   },
   "releaseInfo": {
-    "commitHash": "pending",
-    "releaseDate": "pending"
+    "commitHash": "4f947dbeacba456bcdfc1ce03f18eafdb2c65244",
+    "releaseDate": "2026-04-10T11:04:00+08:00",
+    "branch": "ai",
+    "pushStatus": "成功"
   }
 }
