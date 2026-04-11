@@ -2,6 +2,14 @@ import { ref } from 'vue'
 import { defineStore } from 'pinia'
 import { useWebSocketStore } from './websocket'
 import type { CronJob, CronRunLogEntry, CronStatus, CronUpsertParams } from '@/api/types'
+import type { BatchDeleteResponse, BatchEnableResponse, BatchDisableResponse, CronStatsResponse, SearchCronsParams, SearchCronsResponse } from '@/api/cron-api'
+import {
+  batchDeleteCrons,
+  batchEnableCrons,
+  batchDisableCrons,
+  getCronStats,
+  searchCrons,
+} from '@/api/cron-api'
 
 export const useCronStore = defineStore('cron', () => {
   const jobs = ref<CronJob[]>([])
@@ -131,6 +139,80 @@ export const useCronStore = defineStore('cron', () => {
     }
   }
 
+  // 新增：批量操作 API 集成
+  async function batchDelete(jobIds: string[]): Promise<BatchDeleteResponse> {
+    saving.value = true
+    lastError.value = null
+    try {
+      const result = await batchDeleteCrons(jobIds)
+      await fetchOverview()
+      return result
+    } catch (error) {
+      lastError.value = error instanceof Error ? error.message : String(error)
+      throw error
+    } finally {
+      saving.value = false
+    }
+  }
+
+  async function batchEnable(jobIds: string[]): Promise<BatchEnableResponse> {
+    saving.value = true
+    lastError.value = null
+    try {
+      const result = await batchEnableCrons(jobIds)
+      await fetchOverview()
+      return result
+    } catch (error) {
+      lastError.value = error instanceof Error ? error.message : String(error)
+      throw error
+    } finally {
+      saving.value = false
+    }
+  }
+
+  async function batchDisable(jobIds: string[]): Promise<BatchDisableResponse> {
+    saving.value = true
+    lastError.value = null
+    try {
+      const result = await batchDisableCrons(jobIds)
+      await fetchOverview()
+      return result
+    } catch (error) {
+      lastError.value = error instanceof Error ? error.message : String(error)
+      throw error
+    } finally {
+      saving.value = false
+    }
+  }
+
+  async function fetchStats(): Promise<CronStatsResponse> {
+    loading.value = true
+    lastError.value = null
+    try {
+      const result = await getCronStats()
+      return result
+    } catch (error) {
+      lastError.value = error instanceof Error ? error.message : String(error)
+      throw error
+    } finally {
+      loading.value = false
+    }
+  }
+
+  async function search(params?: SearchCronsParams): Promise<SearchCronsResponse> {
+    loading.value = true
+    lastError.value = null
+    try {
+      const result = await searchCrons(params)
+      return result
+    } catch (error) {
+      lastError.value = error instanceof Error ? error.message : String(error)
+      throw error
+    } finally {
+      loading.value = false
+    }
+  }
+
   return {
     jobs,
     status,
@@ -150,5 +232,10 @@ export const useCronStore = defineStore('cron', () => {
     updateJob,
     deleteJob,
     runJob,
+    batchDelete,
+    batchEnable,
+    batchDisable,
+    fetchStats,
+    search,
   }
 })

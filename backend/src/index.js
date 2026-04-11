@@ -16,6 +16,7 @@ const themesRoutes = require('./routes/themes.routes');
 const authRoutes = require('./routes/auth.routes');
 const wafRoutes = require('./routes/waf.routes');
 const cicdScanRoutes = require('./routes/cicdScan.routes');
+const cronRoutes = require('./routes/cron.routes');
 
 // 导入中间件
 const errorHandler = require('./middleware/errorHandler');
@@ -64,6 +65,7 @@ app.use('/api/search', searchRoutes);
 app.use('/api/stats', statsRoutes);
 app.use('/api/rbac', rbacRoutes);
 app.use('/api/themes', themesRoutes);
+app.use('/api/crons', cronRoutes);
 
 // 404 处理
 app.use((req, res) => {
